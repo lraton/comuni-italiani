@@ -23,10 +23,26 @@ Route::group(['middleware' => ['api'], 'prefix' => config('comuni.route')], func
         });
     })->whereNumber('id');
 
-    Route::middleware(config('comuni.middlewares'))->get('/regions', function () {
-        return Cache::remember('regions', config('comuni.ttl'), function () {
-            return Region::orderBy('name', 'asc')->get()->toArray();
-        });
+    // --- REGIONS ---
+    Route::middleware(config('comuni.middlewares'))->get('/regions', function (Request $request) {
+        $query = Region::query();
+
+        if ($request->filled('q')) {
+            $query->where('name', 'like', '%'.$request->q.'%');
+        }
+
+        if ($request->filled('province') || $request->filled('prov')) {
+            $prov = $request->input('province') ?? $request->input('prov');
+            $query->whereHas('provinces', function ($q) use ($prov) {
+                if (is_numeric($prov)) {
+                    $q->where('id', $prov);
+                } else {
+                    $q->where('code', strtoupper($prov))->orWhere('name', 'like', '%'.$prov.'%');
+                }
+            });
+        }
+
+        return $query->orderBy('name', 'asc')->get()->toArray();
     });
 
     Route::middleware(config('comuni.middlewares'))->get('/regions/{id}', function ($id) {
@@ -35,14 +51,27 @@ Route::group(['middleware' => ['api'], 'prefix' => config('comuni.route')], func
         });
     })->whereNumber('id');
 
+    // --- PROVINCES ---
     Route::middleware(config('comuni.middlewares'))->get('/provinces', function (Request $request) {
-        if ($request->has('q') && Str::length($request->q) > 3) {
-            return Province::where('name', 'like', '%'.$request->q.'%')->orderby('name', 'asc')->get();
+        $query = Province::query();
+
+        if ($request->filled('q')) {
+            $qVal = $request->q;
+            $query->where(function ($q) use ($qVal) {
+                $q->where('name', 'like', '%'.$qVal.'%')
+                  ->orWhere('code', strtoupper($qVal));
+            });
         }
 
-        return Cache::remember('provinces', config('comuni.ttl'), function () {
-            return Province::orderBy('name', 'asc')->get()->toArray();
-        });
+        if ($request->filled('region_id')) {
+            $query->where('region_id', $request->region_id);
+        } elseif ($request->filled('region')) {
+            $query->whereHas('region', function ($q) use ($request) {
+                $q->where('name', 'like', '%'.$request->region.'%');
+            });
+        }
+
+        return $query->orderBy('name', 'asc')->get()->toArray();
     });
 
     Route::middleware(config('comuni.middlewares'))->get('/provinces/{code}', function ($code) {
@@ -57,14 +86,36 @@ Route::group(['middleware' => ['api'], 'prefix' => config('comuni.route')], func
         });
     })->whereNumber('id');
 
+    // --- CITIES ---
     Route::middleware(config('comuni.middlewares'))->get('/cities', function (Request $request) {
-        if ($request->has('q') && Str::length($request->q) > 3) {
-            return City::where('name', 'like', '%'.$request->q.'%')->orderby('name', 'asc')->get();
+        $query = City::query();
+
+        if ($request->filled('q')) {
+            $query->where('name', 'like', '%'.$request->q.'%');
         }
 
-        return Cache::remember('cities', config('comuni.ttl'), function () {
-            return City::orderBy('name', 'asc')->get()->toArray();
-        });
+        if ($request->filled('prov') || $request->filled('province_code') || $request->filled('province')) {
+            $prov = $request->input('prov') ?? $request->input('province_code') ?? $request->input('province');
+            $query->whereHas('province', function ($q) use ($prov) {
+                if (is_numeric($prov)) {
+                    $q->where('id', $prov);
+                } else {
+                    $q->where('code', strtoupper($prov))->orWhere('name', 'like', '%'.$prov.'%');
+                }
+            });
+        }
+
+        if ($request->filled('region_id')) {
+            $query->whereHas('province', function ($q) use ($request) {
+                $q->where('region_id', $request->region_id);
+            });
+        } elseif ($request->filled('region')) {
+            $query->whereHas('province.region', function ($q) use ($request) {
+                $q->where('name', 'like', '%'.$request->region.'%');
+            });
+        }
+
+        return $query->orderBy('name', 'asc')->get()->toArray();
     });
 
     Route::middleware(config('comuni.middlewares'))->get('/cities/{id}', function ($id) {
@@ -73,14 +124,44 @@ Route::group(['middleware' => ['api'], 'prefix' => config('comuni.route')], func
         });
     })->whereNumber('id');
 
+    // --- ZIPS / CAP ---
     Route::middleware(config('comuni.middlewares'))->get('/zips', function (Request $request) {
-        if ($request->has('q') && Str::length($request->q) == 5) {
-            return Zip::where('code', 'like', $request->q.'%')->with('city', 'city.province', 'city.province.region', 'city.province.region.zone')->orderby('code', 'asc')->get();
+        $query = Zip::query()->with('city', 'city.province', 'city.province.region');
+
+        if ($request->filled('q')) {
+            $query->where('code', 'like', $request->q.'%');
         }
 
-        return Cache::remember('zips', config('comuni.ttl'), function () {
-            return Zip::orderBy('code', 'asc')->get()->toArray();
-        });
+        if ($request->filled('city_id')) {
+            $query->where('city_id', $request->city_id);
+        } elseif ($request->filled('city')) {
+            $query->whereHas('city', function ($q) use ($request) {
+                $q->where('name', 'like', '%'.$request->city.'%');
+            });
+        }
+
+        if ($request->filled('prov') || $request->filled('province_code') || $request->filled('province')) {
+            $prov = $request->input('prov') ?? $request->input('province_code') ?? $request->input('province');
+            $query->whereHas('city.province', function ($q) use ($prov) {
+                if (is_numeric($prov)) {
+                    $q->where('id', $prov);
+                } else {
+                    $q->where('code', strtoupper($prov))->orWhere('name', 'like', '%'.$prov.'%');
+                }
+            });
+        }
+
+        if ($request->filled('region_id')) {
+            $query->whereHas('city.province', function ($q) use ($request) {
+                $q->where('region_id', $request->region_id);
+            });
+        } elseif ($request->filled('region')) {
+            $query->whereHas('city.province.region', function ($q) use ($request) {
+                $q->where('name', 'like', '%'.$request->region.'%');
+            });
+        }
+
+        return $query->orderBy('code', 'asc')->get()->toArray();
     });
 
     Route::middleware(config('comuni.middlewares'))->get('/zips/{id}', function ($id) {
