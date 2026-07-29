@@ -53,7 +53,7 @@ Route::group(['middleware' => ['api'], 'prefix' => config('comuni.route')], func
 
     // --- PROVINCES ---
     Route::middleware(config('comuni.middlewares'))->get('/provinces', function (Request $request) {
-        $query = Province::query();
+        $query = Province::query()->with('region');
 
         if ($request->filled('q')) {
             $qVal = $request->q;
