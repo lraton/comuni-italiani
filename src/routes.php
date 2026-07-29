@@ -88,7 +88,7 @@ Route::group(['middleware' => ['api'], 'prefix' => config('comuni.route')], func
 
     // --- CITIES ---
     Route::middleware(config('comuni.middlewares'))->get('/cities', function (Request $request) {
-        $query = City::query();
+        $query = City::query()->with(['province', 'zips']);
 
         if ($request->filled('q')) {
             $query->where('name', 'like', '%'.$request->q.'%');
