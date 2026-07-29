@@ -15,21 +15,51 @@ Supporta:
 
 ## Come funziona
 
-Grazie a comode API è possibile ottenere informazioni su **CAP, città, province, regioni e zone d'Italia**.
+Grazie a comode API è possibile ottenere informazioni su **CAP, città, province, regioni e zone d'Italia**, con supporto avanzato per il **filtraggio a cascata (cross-filtering)** su tutte le risorse.
 
-| Endpoint | Metodo | Descrizione | Parametri |
+| Endpoint | Metodo | Descrizione | Parametri opzionali |
 | --- | --- | --- | --- |
 | `/api/comuni/zones` | GET | Restituisce una lista di tutte le zone italiane | - |
 | `/api/comuni/zones/{id}` | GET | Restituisce le informazioni di una determinata zona tramite il suo `id` | - |
-| `/api/comuni/regions` | GET | Restituisce la lista di tutte le regioni italiane | - |
-| `/api/comuni/regions/{id}` | GET | Restituisce le informazioni di una determinata regione tramite il suo `id` | - |
-| `/api/comuni/provinces` | GET | Restituisce la lista di tutte le province italiane | `q` (query string) - filtra per nome dopo il terzo carattere di ricerca |
-| `/api/comuni/provinces/{id}` | GET | Restituisce le informazioni di una determinata provincia tramite il suo `id` | - |
-| `/api/comuni/provinces/{code}` | GET | Restituisce le informazioni di una determinata provincia tramite il suo `code` | - |
-| `/api/comuni/cities` | GET | Restituisce la lista di tutti i comuni italiani | `q` (query string) - filtra per nome dopo il terzo carattere di ricerca |
-| `/api/comuni/cities/{id}` | GET | Restituisce le informazioni di una determinata città tramite il suo `id` | - |
-| `/api/comuni/zips` | GET | Restituisce la lista di tutti i CAP italiani | `q` (query string) - filtra per codice CAP (5 caratteri numerici) |
+| `/api/comuni/regions` | GET | Restituisce la lista delle regioni italiane | `q` (nome regione), `prov` / `province` (sigla/nome/ID provincia) |
+| `/api/comuni/regions/{id}` | GET | Restituisce la regione con zone, province, città e CAP associati | - |
+| `/api/comuni/provinces` | GET | Restituisce la lista delle province italiane | `q` (nome o codice sigla provincia), `region_id` (ID regione), `region` (nome regione) |
+| `/api/comuni/provinces/{id}` | GET | Restituisce le informazioni di una provincia tramite il suo `id` | - |
+| `/api/comuni/provinces/{code}` | GET | Restituisce le informazioni di una provincia tramite il suo `code` (es. `RM`) | - |
+| `/api/comuni/cities` | GET | Restituisce la lista dei comuni italiani | `q` (nome città), `prov` / `province` (sigla/nome/ID provincia), `region_id` (ID regione), `region` (nome regione) |
+| `/api/comuni/cities/{id}` | GET | Restituisce la città con provincia, regione e relativi CAP | - |
+| `/api/comuni/zips` | GET | Restituisce la lista dei CAP italiani | `q` (prefisso o codice CAP), `city_id` (ID città), `city` (nome città), `prov` (sigla/nome provincia), `region_id` (ID regione) |
 | `/api/comuni/zips/{id}` | GET | Restituisce le informazioni di un determinato CAP tramite il suo `id` | - |
+
+---
+
+## Esempi di Filtraggio a Cascata (Cross-Filtering)
+
+### 1. Filtrare i comuni per Regione o Provincia
+```http
+GET /api/comuni/cities?region_id=12&q=Rom
+GET /api/comuni/cities?prov=RM&q=Roma
+```
+
+### 2. Filtrare le province per Regione
+```http
+GET /api/comuni/provinces?region_id=12
+GET /api/comuni/provinces?region=Lazio
+```
+
+### 3. Filtrare i CAP per Comune o Provincia
+```http
+GET /api/comuni/zips?city_id=58091
+GET /api/comuni/zips?prov=RM&q=001
+```
+
+---
+
+## Caching e Performance
+
+Tutte le query memorizzate in cache utilizzano strutture array native (`->toArray()`). Questo previene problemi di deserializzazione `__PHP_Incomplete_Class` quando il package interagisce con driver di cache come Redis o Memcached.
+
+---
 
 ## Installazione
 
@@ -59,6 +89,8 @@ oppure, se è configurato l'alias `sail`:
 sail artisan migrate && sail artisan comuni:update
 ```
 
+---
+
 ## Personalizzazione
 
 È possibile impostare tramite la variabile `.env` `COMUNI_MIDDLEWARES` del proprio progetto Laravel la lista dei middleware sotto cui verranno registrate le rotte del package.
@@ -77,10 +109,12 @@ Se la variabile `COMUNI_MIDDLEWARES` non è presente, verrà applicato automatic
 COMUNI_MIDDLEWARES=api,auth:sanctum
 ```
 
-In questo esempio tutte le [rotte](#come-funziona) verranno protette dai middleware:
+In questo esempio tutte le rotte verranno protette dai middleware:
 
 - `api`
 - `auth:sanctum`
+
+---
 
 ## Esportazione
 
@@ -104,6 +138,8 @@ oppure:
 sail artisan vendor:publish --provider="Axiostudio\Comuni\ComuniServiceProvider"
 ```
 
+---
+
 ## Aggiornamento database comuni
 
 Per aggiornare o importare i dati relativi a zone, regioni, province, comuni e CAP:
@@ -123,6 +159,8 @@ oppure:
 ```bash
 ./vendor/bin/sail artisan comuni:update
 ```
+
+---
 
 ## Note
 
