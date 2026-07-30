@@ -120,7 +120,7 @@ Route::group(['middleware' => ['api'], 'prefix' => config('comuni.route')], func
 
     Route::middleware(config('comuni.middlewares'))->get('/cities/{id}', function ($id) {
         return Cache::remember('cities-'.$id, config('comuni.ttl'), function () use ($id) {
-            return City::where('id', $id)->with(['province', 'zips', 'province.region', 'province.region.zone'])->firstOrFail();
+            return City::where('id', $id)->with(['province', 'zips', 'province.region', 'province.region.zone'])->firstOrFail()->toArray();
         });
     })->whereNumber('id');
 
